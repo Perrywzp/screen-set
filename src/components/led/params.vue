@@ -21,7 +21,7 @@
       <td align="center">文字颜色</td>
       <td>
         <ul class="btn-radio">
-          <li v-for="item in options.fontColors" :value="item.value" :key="item.value"
+          <li v-for="item in options.fontColors" :key="item.value"
             :class="{active: item.value === value.fontColor}"
             @click="value.fontColor=item.value">
           <span>{{item.name}}</span></li>
@@ -32,7 +32,7 @@
       <td align="center">显示方式</td>
       <td>
         <ul class="btn-radio">
-          <li v-for="item in options.showModes" :value="item.value" :key="item.value"
+          <li v-for="item in options.showModes" :key="item.value"
             :class="{active: item.value === value.showMode}"
             @click="value.showMode=item.value">
           <span>{{item.name}}</span></li>
@@ -43,7 +43,7 @@
       <td align="center">对其方式</td>
       <td>
         <ul class="btn-radio">
-          <li v-for="item in options.horAligns" :value="item.value" :key="item.value"
+          <li v-for="item in options.horAligns" :key="item.value"
             :class="{active: item.value === value.horAlign}"
             @click="value.horAlign=item.value">
           <span>{{item.name}}</span></li>
@@ -58,11 +58,31 @@
     </tr>
     <tr>
       <td align="center">显示类型</td>
-      <td> 【】 </td>
+      <td>
+        <el-select v-model="displayContents">
+          <el-option  v-for="(item, index) in displayKeywords" :value="item.childrens" :key="index" :label="item.name">{{item.name}}</el-option>
+        </el-select>
+        </td>
     </tr>
     <tr>
       <td align="center">显示内容</td>
-      <td> 【】 </td>
+      <td>
+        <el-dropdown trigger="click" :hide-on-click="false" @command="hdKeywordClick">
+          <el-tooltip
+            :content="tips"
+            :disabled="!tips"
+            placement="top-start">
+            <textarea
+              ref="textarea"
+              :rows="2"
+              placeholder="请输入内容"
+              @keydown="handleKeyDown" v-model="value.text"></textarea>
+          </el-tooltip>
+          <el-dropdown-menu slot="dropdown" class="led-params-keywords">
+            <el-dropdown-item v-for="(item, index) in displayContents" :key="index" :command="item" :disabled="boolActive(item)">{{item.name}}</el-dropdown-item>
+          </el-dropdown-menu>
+         </el-dropdown>
+      </td>
     </tr>
   </table>
 </template>
@@ -81,10 +101,35 @@ export default {
           horAlign: 'left'
         }
       }
+    },
+    displayKeywords: {
+      type: Array,
+      default () {
+        return [
+          {
+            name: '类型一',
+            id: '11111',
+            childrens: [
+              {name: '关键字1', id: 'key1111'},
+              {name: '关键字2', id: 'key2221'}
+            ]
+          },
+          {
+            name: '类型二',
+            id: '11111',
+            childrens: [
+              {name: '关键字3', id: 'key3333'},
+              {name: '关键字4', id: 'key4444'}
+            ]
+          }
+        ]
+      }
     }
   },
   data () {
     return {
+      displayContents: [],
+      tips: '1～64个字符；不能包含 [ ] ^ $ 这些特殊字符。',
       options: {
         fontSizes: [
           {name: '16px', value: 16},
@@ -112,7 +157,64 @@ export default {
           {name: '是', value: 'bold'},
           {name: '否', value: 'normal'}
         ]
-      }
+      },
+      selectKeywords: []
+    }
+  },
+  watch: {
+    selectKeywords: {
+      handle () {
+        // this.value.text += this.selectKeywords
+      },
+      deep: true
+    }
+  },
+  methods: {
+    hdKeywordClick (item) {
+      !this.selectKeywords.some(obj => obj.id === item.id) && this.selectKeywords.push(item)
+    },
+    boolActive (item) {
+      return this.selectKeywords.some(val => val.id === item.id)
+    },
+    handleKeyDown (ev) {
+      console.log(ev)
+      // const { parseValue, startFlag, endFlag } = this
+      const { textarea } = this.$refs
+      console.log(textarea)
+      // const keyCode = ev.keyCode
+      // const key = ev.key
+      // const currentCursorPosition = getCursorPosition(textarea)
+      // const between = cursorBetween(textarea, currentCursorPosition, startFlag, endFlag)
+      // const before = cursorBefore(textarea, currentCursorPosition, startFlag, endFlag)
+      // const after = cursorAfter(textarea, currentCursorPosition, startFlag, endFlag)
+
+      // if (between) {
+      //   if (keyCode === 8 || keyCode === 46) {
+      //     // 删除按键将删除当前光标所处位置的模板
+      //     this.removeTemplate(parseValue.slice(0, between.start) + parseValue.slice(between.end), between.start)
+      //     ev.preventDefault()
+      //   } else if (keyCode > 36 && keyCode < 41) {
+      //     // 上下左右箭头不做任何处理
+      //     return
+      //   } else if (keyCode === 13 || keyCode === 32 || (keyCode >= 48 && keyCode <= 111) || keyCode >= 186) {
+      //     // 在模板中间输入内容时，自动将鼠标移至末尾
+      //     // cursorMoveToEnd(textarea)
+      //     ev.preventDefault()
+      //     return
+      //   }
+      //   // 其他按键阻止默认行为
+      //   ev.preventDefault()
+      // } else if (after && keyCode === 8) {
+      //   // 鼠标位于模板后面，且当前按下回退键将删除光标前的模板
+      //   this.removeTemplate(parseValue.slice(0, after.start) + parseValue.slice(after.end), after.start)
+      //   ev.preventDefault()
+      // } else if (before && keyCode === 46) {
+      //   // 鼠标位于模板前面，且当前按下delete键将删除光标后的模板
+      //   this.removeTemplate(parseValue.slice(0, before.start) + parseValue.slice(before.end), before.start)
+      //   ev.preventDefault()
+      // } else if (key === '[' || key === ']' || key === '^' || key === '$' || key === 'Enter') {
+      //   ev.preventDefault()
+      // }
     }
   }
 }
@@ -127,7 +229,13 @@ export default {
       border: 1px solid #ccc;
     }
     td {
-      padding: 7px 13px;
+      padding: 5px 7px;
+      .el-dropdown{
+        width: 100%;
+      }
+      textarea {
+        border: none !important;
+      }
       .btn-radio {
         display: block;
         list-style: none;
@@ -137,8 +245,8 @@ export default {
           cursor: pointer;
           float: left;
           width: 75px;
-          height: 30px;
-          line-height: 30px;
+          height: 25px;
+          line-height: 25px;
           text-align: center;
           border: 1px solid #ccc;
           margin-right: -1px;
@@ -155,6 +263,32 @@ export default {
     }
     tr td:first-child {
       background: #eee;
+      padding: 5px 13px;
     }
   }
+</style>
+<style lang="less">
+table.led-params {
+  textarea {
+    border: none !important;
+    padding: 0;
+    resize: none;
+    width: 100%;
+  }
+}
+.el-dropdown-menu.led-params-keywords {
+  width: 420px;
+  padding: 5px 12px 0 12px;
+  overflow: hidden;
+  box-sizing: border-box;
+  li {
+    float: left;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    padding: 0 8px;
+    height: 28px;
+    line-height: 28px;
+    margin: 0 12px 5px 0;
+  }
+}
 </style>

@@ -126,7 +126,7 @@ export default {
       this.ctx = canvas.getContext('2d')
     },
     render () {
-      this.ctx.clearRect(0, 0, this.width, this.height)
+      this.ctx.clearRect(0, 0, this.size.width, this.size.height)
       this.value.forEach((rect, index) => {
         this.drawRect(rect, index)
         this.drawText(rect)
@@ -283,6 +283,7 @@ export default {
       this.drawingRect = ''
       this.drawingStart = ''
       this.crossedRectIndexs = []
+      this.activeRectIndex === '' && this.$emit('selected', {index: '', rect: {}})
       this.render()
     },
     mouseup (e) {
@@ -314,6 +315,8 @@ export default {
         this.drawingRect = ''
         this.$emit('selected', {index: this.activeRectIndex, rect})
         this.$emit('input', this.value)
+      } else {
+        this.activeRectIndex === '' && this.$emit('selected', {index: '', rect: {}})
       }
     },
     // 判定两个矩形是否交叉
@@ -330,6 +333,7 @@ export default {
 </script>
 <style lang='less' scoped>
   canvas {
+    display: block;
     background: #eee url('~@/assets/imgs/bg-sp.png') repeat
   }
 </style>

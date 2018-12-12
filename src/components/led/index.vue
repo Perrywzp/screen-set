@@ -7,13 +7,13 @@
  * @Last Modified: 2018-12-04 07:02:59
  */
 <template>
-  <div class='led-set'>
-    <toolbar v-model="screenSize" @del="hdDel"></toolbar>
+  <div class='led-set' >
+    <toolbar :size="actualScreenSize" @save="hdSave" @del="hdDel" :canDel="curIndex !== ''"></toolbar>
     <div class="led-box">
       <div class="screen-layout" :style="{width: layout.width + 'px', height: layout.height + 'px'}">
-        <screen v-model="value" @selected="selected"></screen>
+        <screen v-model="value" @selected="selected" :size="simulateScreenSize"></screen>
       </div>
-      <params v-show="curIndex !== ''" v-model="curRect" class="led-params"></params>
+      <params class="led-params" v-show="curIndex !== ''" v-model="curRect"></params>
     </div>
   </div>
 </template>
@@ -75,13 +75,18 @@ export default {
     return {
       curRect: {},
       curIndex: '',
-      screenSize: {
-        width: 420,
-        height: 420
+      actualScreenSize: {
+        width: 488,
+        height: 248
+      },
+      simulateScreenSize: {
+        width: 0,
+        height: 0
       }
     }
   },
   mounted () {
+    this.bindKeyDelete()
   },
   watch: {
     curRect () {
@@ -89,11 +94,28 @@ export default {
     }
   },
   methods: {
+    bindKeyDelete () {
+      document.onkeydown = e => {
+        if (e.keyCode === 46 && this.curIndex !== '') {
+          this.hdDel()
+        }
+      }
+    },
     selected ({index, rect}) {
       this.curRect = rect
       this.curIndex = index
     },
-    hdDel () {
+    hdSave (data) {
+      this.actualScreenSize = data
+      this.simulateScreenSize = this.clacSimulateScreenSize()
+      // 置空数据
+      this.value.splice(0, this.value.length)
+      this.curIndex = ''
+      this.$emit('input', this.value)
+    },
+    hdDel (e) {
+      console.log(e)
+      if (this.curIndex === '') return
       this.$confirm('此操作将永久删除该区域数据, 是否继续?', '提示', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
@@ -106,6 +128,18 @@ export default {
           message: '删除成功!'
         })
       }).catch(() => {})
+    },
+    clacSimulateScreenSize () {
+      let simulateScreenSize = {}
+      let { actualScreenSize } = this
+      if (Number(actualScreenSize.width) >= Number(actualScreenSize.height)) {
+        simulateScreenSize.width = this.layout.width
+        simulateScreenSize.height = (actualScreenSize.height / actualScreenSize.width) * simulateScreenSize.width
+      } else {
+        simulateScreenSize.height = this.layout.height
+        simulateScreenSize.width = (actualScreenSize.width / actualScreenSize.height) * simulateScreenSize.height
+      }
+      return simulateScreenSize
     }
   }
 }
@@ -120,6 +154,7 @@ export default {
   .screen-layout{
     float: left;
     margin-right: 20px;
+    background: #f5f5f5;
   }
   .led-params {
     width: 54%;
