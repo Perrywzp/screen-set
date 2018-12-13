@@ -13,7 +13,7 @@
       <div class="screen-layout" :style="{width: layout.width + 'px', height: layout.height + 'px'}">
         <screen v-model="value" @selected="selected" :size="simulateScreenSize"></screen>
       </div>
-      <params class="led-params" v-show="curIndex !== ''" v-model="curRect"></params>
+      <params v-model="curRect" class="led-params" v-show="curIndex !== ''" :keywords="keywords"></params>
     </div>
   </div>
 </template>
@@ -69,6 +69,29 @@ export default {
           horAlign: 'right'
         }]
       }
+    },
+    keywords: {
+      type: Array,
+      default () {
+        return [
+          {
+            name: '类型一',
+            id: '11111',
+            childrens: [
+              {name: '关键字1', id: 'key1111'},
+              {name: '关键字2', id: 'key2221'}
+            ]
+          },
+          {
+            name: '类型二',
+            id: '11111',
+            childrens: [
+              {name: '关键字3', id: 'key3333'},
+              {name: '关键字4', id: 'key4444'}
+            ]
+          }
+        ]
+      }
     }
   },
   data () {
@@ -93,6 +116,7 @@ export default {
       this.value[this.curIndex] = this.curRect
     }
   },
+
   methods: {
     bindKeyDelete () {
       document.onkeydown = e => {

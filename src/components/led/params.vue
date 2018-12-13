@@ -60,23 +60,28 @@
       <td align="center">显示类型</td>
       <td>
         <el-select v-model="displayContents">
-          <el-option  v-for="(item, index) in displayKeywords" :value="item.childrens" :key="index" :label="item.name">{{item.name}}</el-option>
+          <el-option  v-for="(item, index) in keywords" :value="item.childrens" :key="index" :label="item.name" @change="showKeywords">{{item.name}}</el-option>
         </el-select>
         </td>
     </tr>
     <tr>
       <td align="center">显示内容</td>
       <td>
-        <el-dropdown trigger="click" :hide-on-click="false" @command="hdKeywordClick">
+        <el-dropdown trigger="click" :hide-on-click="false" ref="dropdown" @command="hdKeywordClick">
           <el-tooltip
             :content="tips"
             :disabled="!tips"
-            placement="top-start">
+            placement="left">
             <textarea
+              class="el-textarea__inner"
               ref="textarea"
               :rows="2"
               placeholder="请输入内容"
-              @keydown="handleKeyDown" v-model="value.text"></textarea>
+              @keydown="handleKeyDown"
+              @keyup="showKeywords"
+              @click="showKeywords"
+              :value="value.text | parseValue(selectKeywords, placeholder, this)"
+              ></textarea>
           </el-tooltip>
           <el-dropdown-menu slot="dropdown" class="led-params-keywords">
             <el-dropdown-item v-for="(item, index) in displayContents" :key="index" :command="item" :disabled="boolActive(item)">{{item.name}}</el-dropdown-item>
@@ -87,8 +92,10 @@
   </table>
 </template>
 <script>
+import mixin from './mixin'
 export default {
   name: 'led-params',
+  mixins: [mixin],
   props: {
     value: {
       type: Object,
@@ -102,7 +109,7 @@ export default {
         }
       }
     },
-    displayKeywords: {
+    keywords: {
       type: Array,
       default () {
         return [
@@ -123,6 +130,13 @@ export default {
             ]
           }
         ]
+      }
+    },
+    // 占位符
+    placeholder: {
+      type: Array,
+      default () {
+        return ['[', ']']
       }
     }
   },
@@ -161,60 +175,167 @@ export default {
       selectKeywords: []
     }
   },
-  watch: {
-    selectKeywords: {
-      handle () {
-        // this.value.text += this.selectKeywords
-      },
-      deep: true
-    }
+  mounted () {
   },
   methods: {
+    showKeywords () {
+      // this.$refs.dropdown.visible = true
+    },
+    /**
+     * 查找当前光标在占位符的什么位置，前/中/后
+     * @param textarea 文本域实例
+     * @param placeholder {array} 占位符，默认 '[]'
+     */
+    getCursorFromPlaceholder (textarea, placeholder) {
+      let [startFlag, endFlag] = placeholder
+      let curIndex = this.getCursorCurIndex(textarea)
+      let text = textarea.value
+      let reg = new RegExp(`\\${startFlag}[^\\${startFlag}\\${endFlag}]*(?=${endFlag})`, 'g')
+      let matchs = text.match(reg)
+      if (!matchs) return {}
+      let match = {}
+      for (let i = 0; i < matchs.length; i++) {
+        let item = matchs[i]
+        let start = text.indexOf(item)
+        let end = start + item.length + 1
+        let content = item.replace('[', '')
+        let type = ''
+        match = {start, end, content, type}
+        if (curIndex === start - 1) {
+          match.type = 'before'
+          break
+        }
+        if (curIndex >= start && curIndex < end) {
+          match.type = 'between'
+          break
+        }
+        if (curIndex === end) {
+          match.type = 'after'
+          break
+        }
+      }
+      return match
+    },
+    /**
+     * 获取当前光标所在位置
+     * @param textarea 文本域实例
+     */
+    getCursorCurIndex (textarea) {
+      return textarea.selectionStart
+    },
+    /**
+     * 在光标放入内容
+     */
+    insertAtCursor (textarea, name) {
+      let curIndex = this.getCursorCurIndex(textarea)
+      let text = textarea.value
+      let {selectKeywords, placeholder, getCursorFromPlaceholder} = this
+      let [startFlag, endFlag] = placeholder
+      let {type} = getCursorFromPlaceholder(textarea, placeholder)
+      if (type === 'between') {
+        text = text + this.comboPlaceholder(name)
+      } else {
+        text = text.slice(0, curIndex) + this.comboPlaceholder(name) + text.slice(curIndex)
+      }
+      this.getMatchs(text).forEach(match => {
+        let reg = new RegExp(`\\${startFlag}${match}\\${endFlag}`, 'g')
+        let id = this.getValue(match, selectKeywords, 'name', 'id')
+        text = text.replace(reg, `${startFlag}${id}${endFlag}`)
+      })
+      this.value.text = text
+      this.$nextTick(() => {
+        this.cursorMoveToEnd(textarea)
+      })
+    },
+    /**
+     * @description 获取匹配模板格式的子串
+     */
+    getMatchs (val) {
+      let [startFlag, endFlag] = this.placeholder
+      let reg = new RegExp(`\\${startFlag}[^\\${startFlag}\\${endFlag}]*(?=${endFlag})`, 'g')
+      let matchs = val.match(reg)
+      if (matchs) {
+        return matchs.map(item => {
+          return item.replace(startFlag, '')
+        })
+      } else {
+        return []
+      }
+    },
+    /**
+     * 将光标移到末尾
+     */
+    cursorMoveToEnd (textarea) {
+      textarea.selectionStart = textarea.value.length
+    },
+    setCursorPosition (textarea, newCursorPosition) {
+      textarea.selectionStart = newCursorPosition
+    },
+    comboPlaceholder (val) {
+      let [startFlag, endFlag] = this.placeholder
+      return startFlag + val + endFlag
+    },
+    /**
+     * 响应点击事件
+     */
     hdKeywordClick (item) {
       !this.selectKeywords.some(obj => obj.id === item.id) && this.selectKeywords.push(item)
+      this.insertAtCursor(this.$refs.textarea, item.name)
     },
+    /**
+     * 判定关键字是否被选中
+     */
     boolActive (item) {
       return this.selectKeywords.some(val => val.id === item.id)
     },
-    handleKeyDown (ev) {
-      console.log(ev)
-      // const { parseValue, startFlag, endFlag } = this
-      const { textarea } = this.$refs
-      console.log(textarea)
-      // const keyCode = ev.keyCode
-      // const key = ev.key
-      // const currentCursorPosition = getCursorPosition(textarea)
-      // const between = cursorBetween(textarea, currentCursorPosition, startFlag, endFlag)
-      // const before = cursorBefore(textarea, currentCursorPosition, startFlag, endFlag)
-      // const after = cursorAfter(textarea, currentCursorPosition, startFlag, endFlag)
+    /**
+     * 删除一组占位符
+     */
+    removePlaceholder (content, start) {
+      let {getValue, selectKeywords, placeholder, setCursorPosition} = this
+      let [startFlag, endFlag] = placeholder
+      let id = getValue(content, selectKeywords, 'name', 'id')
+      this.selectKeywords = selectKeywords.filter(item => item.id !== id)
+      let reg = new RegExp(`\\${startFlag}${id}\\${endFlag}`, 'g')
+      this.value.text = this.value.text.replace(reg, '')
+      this.$nextTick(() => {
+        setCursorPosition(this.$refs.textarea, start)
+      })
+    },
 
-      // if (between) {
-      //   if (keyCode === 8 || keyCode === 46) {
-      //     // 删除按键将删除当前光标所处位置的模板
-      //     this.removeTemplate(parseValue.slice(0, between.start) + parseValue.slice(between.end), between.start)
-      //     ev.preventDefault()
-      //   } else if (keyCode > 36 && keyCode < 41) {
-      //     // 上下左右箭头不做任何处理
-      //     return
-      //   } else if (keyCode === 13 || keyCode === 32 || (keyCode >= 48 && keyCode <= 111) || keyCode >= 186) {
-      //     // 在模板中间输入内容时，自动将鼠标移至末尾
-      //     // cursorMoveToEnd(textarea)
-      //     ev.preventDefault()
-      //     return
-      //   }
-      //   // 其他按键阻止默认行为
-      //   ev.preventDefault()
-      // } else if (after && keyCode === 8) {
-      //   // 鼠标位于模板后面，且当前按下回退键将删除光标前的模板
-      //   this.removeTemplate(parseValue.slice(0, after.start) + parseValue.slice(after.end), after.start)
-      //   ev.preventDefault()
-      // } else if (before && keyCode === 46) {
-      //   // 鼠标位于模板前面，且当前按下delete键将删除光标后的模板
-      //   this.removeTemplate(parseValue.slice(0, before.start) + parseValue.slice(before.end), before.start)
-      //   ev.preventDefault()
-      // } else if (key === '[' || key === ']' || key === '^' || key === '$' || key === 'Enter') {
-      //   ev.preventDefault()
-      // }
+    handleKeyDown (e) {
+      let { placeholder, getCursorFromPlaceholder, removePlaceholder, cursorMoveToEnd } = this
+      let { textarea } = this.$refs
+      let keyCode = e.keyCode
+      let key = e.key
+      let {start, type, content} = getCursorFromPlaceholder(textarea, placeholder)
+      if (type === 'between') {
+        if (keyCode === 8 || keyCode === 46) {
+          // 删除按键将删除当前光标所处位置的模板
+          removePlaceholder(content, start)
+          e.preventDefault()
+        } else if (keyCode > 36 && keyCode < 41) {
+          // 上下左右箭头不做任何处理
+          return
+        } else if (keyCode === 13 || keyCode === 32 || (keyCode >= 48 && keyCode <= 111) || keyCode >= 186) {
+          // 在模板中间输入内容时，自动将鼠标移至末尾
+          cursorMoveToEnd(textarea)
+          e.preventDefault()
+          return
+        }
+        // 其他按键阻止默认行为
+        e.preventDefault()
+      } else if (type === 'after' && keyCode === 8) {
+        // 鼠标位于模板后面，且当前按下回退键将删除光标前的模板
+        removePlaceholder(content, start)
+        e.preventDefault()
+      } else if (type === 'before' && keyCode === 46) {
+        // 鼠标位于模板前面，且当前按下delete键将删除光标后的模板
+        removePlaceholder(content, start)
+        e.preventDefault()
+      } else if (key === '[' || key === ']' || key === '^' || key === '$' || key === 'Enter') {
+        e.preventDefault()
+      }
     }
   }
 }
@@ -272,7 +393,7 @@ table.led-params {
   textarea {
     border: none !important;
     padding: 0;
-    resize: none;
+    // resize: none;
     width: 100%;
   }
 }
