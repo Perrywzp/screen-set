@@ -103,7 +103,8 @@ export default {
     placeholder: {
       type: Array,
       default () { return [] }
-    }
+    },
+    curIndex: ''
   },
   data () {
     return {
@@ -122,6 +123,10 @@ export default {
         this.render()
       },
       deep: true
+    },
+    curIndex () {
+      this.activeRectIndex = this.curIndex
+      this.render()
     }
   },
   mounted () {

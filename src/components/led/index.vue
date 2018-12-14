@@ -8,11 +8,12 @@
  */
 <template>
   <div class='led-set' >
-    <toolbar :size="actualScreenSize" @save="hdSave" @del="hdDel" :canDel="curIndex !== ''"></toolbar>
+    <toolbar :size="value.size" @save="hdSave" @del="hdDel" :canDel="curIndex !== ''"></toolbar>
     <div class="led-box">
       <div class="screen-layout" :style="{width: layout.width + 'px', height: layout.height + 'px'}">
-        <screen v-model="value" @selected="selected" :size="simulateScreenSize"
+        <screen v-model="value.areas" @selected="selected" :size="simulateScreenSize"
         :keywords="keywords"
+        :curIndex="curIndex"
         :placeholder="options.placeholder"></screen>
       </div>
       <params v-model="curRect" class="led-params" v-show="curIndex !== ''"
@@ -41,39 +42,42 @@ export default {
       }
     },
     value: {
-      type: Array,
+      type: Object,
       default () {
-        return [{
-          x: 20,
-          y: 20,
-          width: 300,
-          height: 75,
-          text: '恭喜发财',
-          fontColor: '#c2484c',
-          fontSize: 16,
-          fontWeight: 'normal',
-          horAlign: 'left'
-        }, {
-          x: 20,
-          y: 120,
-          width: 350,
-          height: 75,
-          text: '红包拿来',
-          fontColor: '#e5de1d',
-          fontSize: 18,
-          fontWeight: 'normal',
-          horAlign: 'center'
-        }, {
-          x: 20,
-          y: 220,
-          width: 400,
-          height: 75,
-          text: '城阙辅三秦，风烟望五津, 与君离别意，同是宦游人; 海内存知己，天涯若比邻; 无为在歧路，儿女共沾巾',
-          fontColor: '#1de51d',
-          fontSize: 20,
-          fontWeight: 'bold',
-          horAlign: 'right'
-        }]
+        return {
+          size: {width: 448, height: 288},
+          areas: [{
+            x: 20,
+            y: 20,
+            width: 300,
+            height: 75,
+            text: '恭喜发财',
+            fontColor: '#c2484c',
+            fontSize: 16,
+            fontWeight: 'normal',
+            horAlign: 'left'
+          }, {
+            x: 20,
+            y: 120,
+            width: 350,
+            height: 75,
+            text: '红包拿来',
+            fontColor: '#e5de1d',
+            fontSize: 18,
+            fontWeight: 'normal',
+            horAlign: 'center'
+          }, {
+            x: 20,
+            y: 220,
+            width: 400,
+            height: 75,
+            text: '城阙辅三秦，风烟望五津, 与君离别意，同是宦游人; 海内存知己，天涯若比邻; 无为在歧路，儿女共沾巾',
+            fontColor: '#1de51d',
+            fontSize: 20,
+            fontWeight: 'bold',
+            horAlign: 'right'
+          }]
+        }
       }
     },
     keywords: {
@@ -113,10 +117,6 @@ export default {
     return {
       curRect: {},
       curIndex: '',
-      actualScreenSize: {
-        width: 488,
-        height: 248
-      },
       simulateScreenSize: {
         width: 0,
         height: 0
@@ -125,10 +125,19 @@ export default {
   },
   mounted () {
     this.bindKeyDelete()
+    if (this.value.size) {
+      this.simulateScreenSize = this.clacSimulateScreenSize()
+    }
+    this.$nextTick(() => {
+      if (this.value.areas.length) {
+        this.curRect = this.value.areas[0]
+        this.curIndex = 0
+      }
+    })
   },
   watch: {
     curRect () {
-      this.value[this.curIndex] = this.curRect
+      this.value.areas[this.curIndex] = this.curRect
     }
   },
 
@@ -145,10 +154,10 @@ export default {
       this.curIndex = index
     },
     hdSave (data) {
-      this.actualScreenSize = data
+      this.value.size = data
       this.simulateScreenSize = this.clacSimulateScreenSize()
       // 置空数据
-      this.value.splice(0, this.value.length)
+      this.value.areas.splice(0, this.value.areas.length)
       this.curIndex = ''
       this.$emit('input', this.value)
     },
@@ -160,7 +169,7 @@ export default {
         cancelButtonText: '取消',
         type: 'question'
       }).then(() => {
-        this.value.splice(this.curIndex, 1)
+        this.value.areas.splice(this.curIndex, 1)
         this.curIndex = ''
         this.$message({
           type: 'success',
@@ -170,13 +179,13 @@ export default {
     },
     clacSimulateScreenSize () {
       let simulateScreenSize = {}
-      let { actualScreenSize } = this
-      if (Number(actualScreenSize.width) >= Number(actualScreenSize.height)) {
+      let { size } = this.value
+      if (Number(size.width) >= Number(size.height)) {
         simulateScreenSize.width = this.layout.width
-        simulateScreenSize.height = (actualScreenSize.height / actualScreenSize.width) * simulateScreenSize.width
+        simulateScreenSize.height = (size.height / size.width) * simulateScreenSize.width
       } else {
         simulateScreenSize.height = this.layout.height
-        simulateScreenSize.width = (actualScreenSize.width / actualScreenSize.height) * simulateScreenSize.height
+        simulateScreenSize.width = (size.width / size.height) * simulateScreenSize.height
       }
       return simulateScreenSize
     }
