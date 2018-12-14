@@ -16,6 +16,7 @@
   </canvas>
 </template>
 <script>
+import mixin from './mixin'
 const fontFamily = 'Arial'
 const defaultRectParams = {
   text: '欢迎光临: ',
@@ -28,6 +29,7 @@ const defaultRectParams = {
 const horAlignKeys = ['left', 'center', 'right']
 export default {
   name: 'led-screen',
+  mixins: [mixin],
   props: {
     size: {
       type: Object,
@@ -93,6 +95,14 @@ export default {
           maxRects: 4 // 最多允许绘制多少个区域
         }
       }
+    },
+    keywords: {
+      type: Array,
+      default () { return [] }
+    },
+    placeholder: {
+      type: Array,
+      default () { return [] }
     }
   },
   data () {
@@ -121,6 +131,31 @@ export default {
     })
   },
   methods: {
+    transiferToName (text) {
+      let {placeholder, flatKeywords} = this
+      let [startFlag, endFlag] = placeholder
+      this.getMatchs(text || '').forEach(match => {
+        let reg = new RegExp(`\\${startFlag}${match}\\${endFlag}`, 'g')
+        let name = this.getValue(match, flatKeywords, 'id', 'name')
+        text = text.replace(reg, `${startFlag}${name}${endFlag}`)
+      })
+      return text
+    },
+    /**
+     * 获取匹配模板格式的子串
+     */
+    getMatchs (val) {
+      let [startFlag, endFlag] = this.placeholder
+      let reg = new RegExp(`\\${startFlag}[^\\${startFlag}\\${endFlag}]*(?=${endFlag})`, 'g')
+      let matchs = val.match(reg)
+      if (matchs) {
+        return matchs.map(item => {
+          return item.replace(startFlag, '')
+        })
+      } else {
+        return []
+      }
+    },
     inited () {
       let canvas = this.$refs.canvas
       this.ctx = canvas.getContext('2d')
@@ -188,6 +223,7 @@ export default {
       }
       ctx.textAlign = horAlign
       ctx.textBaseline = 'middle'
+      text = this.transiferToName(text)
       ctx.fillText(text, textX, textY, textMaxWidth)
     },
     mousedown (e) {

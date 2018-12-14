@@ -11,9 +11,15 @@
     <toolbar :size="actualScreenSize" @save="hdSave" @del="hdDel" :canDel="curIndex !== ''"></toolbar>
     <div class="led-box">
       <div class="screen-layout" :style="{width: layout.width + 'px', height: layout.height + 'px'}">
-        <screen v-model="value" @selected="selected" :size="simulateScreenSize"></screen>
+        <screen v-model="value" @selected="selected" :size="simulateScreenSize"
+        :keywords="keywords"
+        :placeholder="options.placeholder"></screen>
       </div>
-      <params v-model="curRect" class="led-params" v-show="curIndex !== ''" :keywords="keywords"></params>
+      <params v-model="curRect" class="led-params" v-show="curIndex !== ''"
+        :keywords="keywords"
+        :multipleLimit="options.multipleLimit"
+        :placeholder="options.placeholder">
+      </params>
     </div>
   </div>
 </template>
@@ -91,6 +97,15 @@ export default {
             ]
           }
         ]
+      }
+    },
+    options: {
+      type: Object,
+      default () {
+        return {
+          multipleLimit: 8, // 标签选择上限
+          placeholder: ['[', ']'] //
+        }
       }
     }
   },

@@ -59,8 +59,8 @@
     <tr>
       <td align="center">显示类型</td>
       <td>
-        <el-select v-model="displayContents">
-          <el-option  v-for="(item, index) in keywords" :value="item.childrens" :key="index" :label="item.name" @change="showKeywords">{{item.name}}</el-option>
+        <el-select v-model="displayTypeIndex">
+          <el-option  v-for="(item, index) in keywords" :value="index" :key="index" :label="item.name" @change="showKeywords">{{item.name}}</el-option>
         </el-select>
         </td>
     </tr>
@@ -77,14 +77,16 @@
               ref="textarea"
               :rows="2"
               placeholder="请输入内容"
-              @keydown="handleKeyDown"
-              @keyup="showKeywords"
+              @keydown="hdKeyDown"
               @click="showKeywords"
-              :value="value.text | parseValue(selectKeywords, placeholder, this)"
+              @input="hdInput"
+              :value="parseValue"
               ></textarea>
           </el-tooltip>
           <el-dropdown-menu slot="dropdown" class="led-params-keywords">
-            <el-dropdown-item v-for="(item, index) in displayContents" :key="index" :command="item" :disabled="boolActive(item)">{{item.name}}</el-dropdown-item>
+            <el-dropdown-item v-for="(item, index) in keywords[displayTypeIndex].childrens" :key="index" :command="item"
+            :disabled="disabledSelect || matchIds.includes(item.id) || matchIds.includes(item.id)">
+            {{item.name}}</el-dropdown-item>
           </el-dropdown-menu>
          </el-dropdown>
       </td>
@@ -138,11 +140,16 @@ export default {
       default () {
         return ['[', ']']
       }
+    },
+    // 控制能够选多少个关键字
+    multipleLimit: {
+      type: Number,
+      default: 8
     }
   },
   data () {
     return {
-      displayContents: [],
+      displayTypeIndex: 0,
       tips: '1～64个字符；不能包含 [ ] ^ $ 这些特殊字符。',
       options: {
         fontSizes: [
@@ -172,10 +179,50 @@ export default {
           {name: '否', value: 'normal'}
         ]
       },
-      selectKeywords: []
+      selectKeywords: [] // 对textarea正在匹配提取出来的值，这里提取的name
     }
   },
-  mounted () {
+  computed: {
+    parseValue: {
+      set (val) {
+        let {placeholder, flatKeywords} = this
+        let [startFlag, endFlag] = placeholder
+        let text = val || ''
+        let matchs = this.selectKeywords = this.getMatchs(text)
+        matchs.forEach(match => {
+          const reg = new RegExp(`\\${startFlag}${match}\\${endFlag}`, 'g')
+          let id = this.getValue(match, flatKeywords, 'name', 'id')
+          text = text.replace(reg, `${startFlag}${id}${endFlag}`)
+        })
+        this.value.text = text
+      },
+      get () {
+        let {placeholder, flatKeywords} = this
+        let [startFlag, endFlag] = placeholder
+        let text = this.value.text || ''
+        this.getMatchs(text).forEach(match => {
+          let reg = new RegExp(`\\${startFlag}${match}\\${endFlag}`, 'g')
+          let name = this.getValue(match, flatKeywords, 'id', 'name')
+          text = text.replace(reg, `${startFlag}${name}${endFlag}`)
+        })
+        return text
+      }
+    },
+    /**
+     * 控制已经选中的选项，禁止重复选， 或者限制选中
+     */
+    disabledSelect (item) {
+      if (this.multipleLimit === 0) return false
+      else {
+        return this.matchIds.length >= this.multipleLimit
+      }
+    },
+    /**
+     * 及时获取匹配到的id
+     */
+    matchIds () {
+      return this.getMatchs(this.value.text || '')
+    }
   },
   methods: {
     showKeywords () {
@@ -229,26 +276,20 @@ export default {
     insertAtCursor (textarea, name) {
       let curIndex = this.getCursorCurIndex(textarea)
       let text = textarea.value
-      let {selectKeywords, placeholder, getCursorFromPlaceholder} = this
-      let [startFlag, endFlag] = placeholder
+      let {placeholder, getCursorFromPlaceholder, setCursorPosition, comboPlaceholder} = this
+      let newText = comboPlaceholder(name)
       let {type} = getCursorFromPlaceholder(textarea, placeholder)
       if (type === 'between') {
-        text = text + this.comboPlaceholder(name)
+        this.parseValue = text + newText
       } else {
-        text = text.slice(0, curIndex) + this.comboPlaceholder(name) + text.slice(curIndex)
+        this.parseValue = text.slice(0, curIndex) + newText + text.slice(curIndex)
       }
-      this.getMatchs(text).forEach(match => {
-        let reg = new RegExp(`\\${startFlag}${match}\\${endFlag}`, 'g')
-        let id = this.getValue(match, selectKeywords, 'name', 'id')
-        text = text.replace(reg, `${startFlag}${id}${endFlag}`)
-      })
-      this.value.text = text
       this.$nextTick(() => {
-        this.cursorMoveToEnd(textarea)
+        setCursorPosition(textarea, curIndex + newText.length)
       })
     },
     /**
-     * @description 获取匹配模板格式的子串
+     * 获取匹配模板格式的子串
      */
     getMatchs (val) {
       let [startFlag, endFlag] = this.placeholder
@@ -262,12 +303,16 @@ export default {
         return []
       }
     },
+
     /**
      * 将光标移到末尾
      */
     cursorMoveToEnd (textarea) {
       textarea.selectionStart = textarea.value.length
     },
+    /**
+     * 设置光标位置
+     */
     setCursorPosition (textarea, newCursorPosition) {
       textarea.selectionStart = newCursorPosition
     },
@@ -279,33 +324,34 @@ export default {
      * 响应点击事件
      */
     hdKeywordClick (item) {
-      !this.selectKeywords.some(obj => obj.id === item.id) && this.selectKeywords.push(item)
       this.insertAtCursor(this.$refs.textarea, item.name)
     },
-    /**
-     * 判定关键字是否被选中
-     */
-    boolActive (item) {
-      return this.selectKeywords.some(val => val.id === item.id)
-    },
+
     /**
      * 删除一组占位符
      */
     removePlaceholder (content, start) {
-      let {getValue, selectKeywords, placeholder, setCursorPosition} = this
+      let {getValue, flatKeywords, placeholder, setCursorPosition} = this
       let [startFlag, endFlag] = placeholder
-      let id = getValue(content, selectKeywords, 'name', 'id')
-      this.selectKeywords = selectKeywords.filter(item => item.id !== id)
+      let id = getValue(content, flatKeywords, 'name', 'id')
       let reg = new RegExp(`\\${startFlag}${id}\\${endFlag}`, 'g')
       this.value.text = this.value.text.replace(reg, '')
       this.$nextTick(() => {
         setCursorPosition(this.$refs.textarea, start)
       })
     },
-
-    handleKeyDown (e) {
-      let { placeholder, getCursorFromPlaceholder, removePlaceholder, cursorMoveToEnd } = this
-      let { textarea } = this.$refs
+    /**
+     * 输入框值改变
+     */
+    hdInput (e) {
+      this.parseValue = e.target.value.replace('\n', '')
+    },
+    /**
+     * 处理按键事件
+     */
+    hdKeyDown (e) {
+      let {placeholder, getCursorFromPlaceholder, removePlaceholder, cursorMoveToEnd} = this
+      let {textarea} = this.$refs
       let keyCode = e.keyCode
       let key = e.key
       let {start, type, content} = getCursorFromPlaceholder(textarea, placeholder)
@@ -395,6 +441,7 @@ table.led-params {
     padding: 0;
     // resize: none;
     width: 100%;
+    user-select: none;
   }
 }
 .el-dropdown-menu.led-params-keywords {

@@ -92,14 +92,6 @@ export default {
       }
     }
   },
-  watch: {
-    size (val) {
-      // this.formVal = val
-    }
-  },
-  mounted () {
-    // this.formVal = this.size
-  },
   methods: {
     confirm () {
       this.$refs.form.validate((valid) => {
